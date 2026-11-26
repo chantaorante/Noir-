@@ -3,7 +3,7 @@ import { ArrowLeft, Clock, Gift, LogOut, MessageSquare, PauseCircle, PlayCircle,
 import { api, credits, fmt } from '../../net/api';
 import { useSession } from '../../state/session';
 import { Link, useRouter } from '../../lib/router';
-import { Field, Loading, Modal, useToast } from '../../lib/ui';
+import { Field, initials, Loading, Modal, useToast } from '../../lib/ui';
 import { ChatPanel } from '../social/Chat';
 import { PlayingCard } from './Card';
 import { Dealer, useDealerQueue } from './Dealer';
@@ -23,21 +23,36 @@ function useReducedMotion() {
   return r;
 }
 
-function usePortrait() {
-  const [p, setP] = useState(() => innerHeight > innerWidth * 1.1);
+/**
+ * The table is always laid out horizontally. On phones held upright, CSS rotates the whole table 90°
+ * (see .table-page in app.css). Where the browser allows it (Android Chrome, installed app), the first tap
+ * also enters full screen and locks landscape, so the phone really turns; iOS Safari keeps the CSS fallback.
+ */
+function useLandscapeLock() {
   useEffect(() => {
-    const on = () => setP(innerHeight > innerWidth * 1.1);
-    addEventListener('resize', on);
-    return () => removeEventListener('resize', on);
+    if (!matchMedia('(pointer: coarse)').matches) return;
+    let entered = false;
+    const lock = async () => {
+      try {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); entered = true; }
+        const o = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+        await o.lock?.('landscape');
+      } catch { /* not supported here: the CSS rotation handles it */ }
+    };
+    addEventListener('pointerup', lock, { once: true });
+    return () => {
+      removeEventListener('pointerup', lock);
+      try { (screen.orientation as ScreenOrientation & { unlock?: () => void }).unlock?.(); } catch { /* ignore */ }
+      if (entered && document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    };
   }, []);
-  return p;
 }
 
 /** Seat coordinates (percent of the felt box) on an ellipse, rotated so the viewer sits bottom-centre. */
-function seatPos(seat: number, maxSeats: number, anchor: number, portrait: boolean) {
+function seatPos(seat: number, maxSeats: number, anchor: number) {
   const angle = Math.PI / 2 + ((seat - anchor) * 2 * Math.PI) / maxSeats;
-  const rx = portrait ? 44 : 47;
-  const ry = portrait ? 45 : 43;
+  const rx = 46;
+  const ry = 43;
   return { x: 50 + rx * Math.cos(angle), y: 50 + ry * Math.sin(angle) };
 }
 
@@ -48,7 +63,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [code, setCode] = useState<string | null>(null);
   const t = useTable(tableId, me!.user.id, code);
   const reduced = useReducedMotion();
-  const portrait = usePortrait();
+  useLandscapeLock();
   const [sitSeat, setSitSeat] = useState<number | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [fairOpen, setFairOpen] = useState(false);
@@ -66,6 +81,16 @@ export function TablePage({ tableId }: { tableId: string }) {
   }, []);
   const onBoard = useCallback(() => undefined, []);
   const pose = useDealerQueue(t.cues, reduced, onDealCard, onBoard);
+
+  // Hands this player has been dealt into since opening the table (shown in the stats row).
+  const [handsPlayed, setHandsPlayed] = useState(0);
+  const countedHands = useRef(new Set<string>());
+  useEffect(() => {
+    const h = t.hand;
+    if (!h?.ended || countedHands.current.has(h.handId) || !h.players.some((p) => p.playerId === me!.user.id)) return;
+    countedHands.current.add(h.handId);
+    setHandsPlayed((n) => n + 1);
+  }, [t.hand, me]);
 
   // Auto-open the buy-in for quick join.
   useEffect(() => {
@@ -85,9 +110,13 @@ export function TablePage({ tableId }: { tableId: string }) {
   const totalPot = (hand?.pots.reduce((a, p) => a + p.amount, 0) ?? 0) + (hand?.players.reduce((a, p) => a + p.streetCommitted, 0) ?? 0);
   const fairness = hand?.fairness ?? null;
   const myContributed = fairness?.contributions.some((c) => c.playerId === me!.user.id) ?? false;
+  const leave = async () => {
+    const r = await t.leave();
+    if (r.ok) { void refresh(); toast({ title: 'You left the table', body: 'Your chips return to your wallet after the hand.' }); }
+  };
 
   return (
-    <div className={`table-page ${portrait ? 'portrait' : 'landscape'}`}>
+    <div className="table-page">
       <header className="table-top">
         <Link to="/lobby" className="btn btn-ghost btn-sm" aria-label="Back to lobby"><ArrowLeft size={16} /><span className="hide-sm">Lobby</span></Link>
         <div className="tt-title">
@@ -104,7 +133,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               <button className="btn btn-ghost btn-sm" onClick={() => void t.sitOut(!mySeatView.sittingOut)} aria-label={mySeatView.sittingOut ? 'Sit back in' : 'Sit out next hand'}>
                 {mySeatView.sittingOut ? <PlayCircle size={16} /> : <PauseCircle size={16} />}<span className="hide-sm">{mySeatView.sittingOut ? 'Sit in' : 'Sit out'}</span>
               </button>
-              <button className="btn btn-ghost btn-sm" onClick={async () => { const r = await t.leave(); if (r.ok) { void refresh(); toast({ title: 'You left the table', body: 'Your chips return to your wallet after the hand.' }); } }}><LogOut size={16} /><span className="hide-sm">Leave</span></button>
+              <button className="btn btn-ghost btn-sm" onClick={leave}><LogOut size={16} /><span className="hide-sm">Leave</span></button>
             </>
           )}
         </div>
@@ -112,16 +141,40 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {t.status !== 'open' && <div className="banner">This table is {t.status}.</div>}
 
+      <section className="tp-main">
+      <div className="tp-head">
+        <div>
+          <span className="label tp-kicker">{t.table.isPrivate ? 'Private' : 'Public'} cash table · game credits</span>
+          <h1 className="tp-title">{t.table.name}</h1>
+        </div>
+        <div className="tp-badges">
+          <span className={`chip-badge ${hand && !hand.ended ? 'live' : ''}`}><i className="dot on" />{hand && !hand.ended ? 'Live' : t.status === 'open' ? 'Waiting' : t.status}</span>
+          <span className="chip-badge num">{t.seats.length} / {t.table.maxSeats} seats</span>
+          <button className="btn btn-ghost btn-sm tooltip" data-tip="Fairness" aria-label="Fairness details" onClick={() => setFairOpen(true)}>
+            {Object.values(t.verify).includes('fail') ? <ShieldAlert size={16} className="danger" /> : <ShieldCheck size={16} className="gold" />}
+          </button>
+          {mySeatView && (
+            <>
+              <button className="btn btn-sm" onClick={() => void t.sitOut(!mySeatView.sittingOut)}>{mySeatView.sittingOut ? <PlayCircle size={15} /> : <PauseCircle size={15} />}{mySeatView.sittingOut ? 'Sit in' : 'Sit out'}</button>
+              <button className="btn btn-sm" onClick={leave}><LogOut size={15} />Leave</button>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="tp-card">
+      <div className="tp-meta label">
+        <span>Blinds <b className="gold num">{fmt(t.table.smallBlind)} / {fmt(t.table.bigBlind)}</b> · No limit</span>
+        <span className="num">{hand ? `Hand #${hand.handNo}` : 'No hand yet'}</span>
+      </div>
       <div className="table-stage">
-        <div className="dealer-wrap" aria-hidden={reduced}><Dealer pose={reduced ? 'idle' : pose} /></div>
         <div className="felt" ref={feltRef}>
+          <div className="dealer-wrap" aria-hidden={reduced}><Dealer pose={reduced ? 'idle' : pose} /></div>
           <div className="felt-inner">
-            <div className="felt-logo display" aria-hidden="true">NOIR</div>
             <div className="board" aria-label="Community cards">
               {[0, 1, 2, 3, 4].map((i) => {
                 const c = hand?.board[i];
                 const winningHand = hand?.ended && hand.winners.length > 0;
-                return c ? <PlayingCard key={`${hand!.handId}-${i}`} card={c} size={portrait ? 'md' : 'lg'} verified={t.verify[c]} className="deal-in" highlight={!!winningHand && false} /> : <div key={i} className={`card-slot ${portrait ? 'md' : 'lg'}`} />;
+                return c ? <PlayingCard key={`${hand!.handId}-${i}`} card={c} size="lg" verified={t.verify[c]} className="deal-in" highlight={!!winningHand && false} /> : <div key={i} className="card-slot lg" />;
               })}
             </div>
             <div className="pot" aria-live="polite">
@@ -139,18 +192,18 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
 
           {Array.from({ length: maxSeats }, (_, seat) => {
-            const pos = seatPos(seat, maxSeats, anchor, portrait);
+            const pos = seatPos(seat, maxSeats, anchor);
             const sv = t.seats.find((s) => s.seat === seat) ?? null;
             const pv = hand?.players.find((p) => p.seat === seat && p.playerId === sv?.userId) ?? null;
             return (
-              <SeatBox key={seat} seat={seat} pos={pos} sv={sv} pv={pv} hand={hand} isMe={sv?.userId === me!.user.id} verify={t.verify} portrait={portrait}
+              <SeatBox key={seat} seat={seat} pos={pos} sv={sv} pv={pv} hand={hand} isMe={sv?.userId === me!.user.id} verify={t.verify}
                 canSit={!mySeatView && !sv && t.status === 'open'} onSit={() => setSitSeat(seat)} onOpen={() => sv && setSeatMenu(sv)}
                 offset={t.serverOffset} actionSeconds={t.table!.actionSeconds} gift={t.gifts.find((g) => g.toUserId === sv?.userId)} />
             );
           })}
 
           {flights.map((f) => {
-            const to = seatPos(f.seat, maxSeats, anchor, portrait);
+            const to = seatPos(f.seat, maxSeats, anchor);
             return <div key={f.id} className="flight" style={{ '--tx': `${to.x}%`, '--ty': `${to.y}%` } as React.CSSProperties}><PlayingCard faceDown size="sm" /></div>;
           })}
         </div>
@@ -170,9 +223,37 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
       </footer>
 
-      <aside className={`table-chat ${chatOpen ? 'open' : ''}`} aria-hidden={!chatOpen}>
-        <div className="tc-head"><strong>Table chat</strong><button className="btn btn-ghost btn-icon btn-sm" aria-label="Close chat" onClick={() => setChatOpen(false)}><X size={16} /></button></div>
-        <ChatPanel channel={`table:${tableId}`} compact ready={!!t.table} />
+      <p className="tp-note label">Game credits only · non-redeemable · no real-money play</p>
+      </div>
+      <div className="tp-stats">
+        <div className="tp-stat"><span className="label">Wallet</span><strong className="num">{fmt(me!.credits.wallet)}</strong><span>credits</span></div>
+        <div className="tp-stat"><span className="label">At this table</span><strong className="num">{mySeatView ? fmt(me_ ? me_.stack : mySeatView.stack) : '—'}</strong><span>{mySeatView ? 'chips' : 'not seated'}</span></div>
+        <div className="tp-stat"><span className="label">Hands played</span><strong className="num">{handsPlayed}</strong><span>this session</span></div>
+      </div>
+      </section>
+
+      <aside className={`table-chat ${chatOpen ? 'open' : ''}`} aria-label="Table chat and players">
+        <div className="tc-head"><strong>Table chat</strong><span className="label tc-live"><i className="dot on" /> Connected</span><button className="btn btn-ghost btn-icon btn-sm tc-close" aria-label="Close chat" onClick={() => setChatOpen(false)}><X size={16} /></button></div>
+        <div className="tc-chat"><ChatPanel channel={`table:${tableId}`} compact ready={!!t.table} /></div>
+        <div className="tc-players">
+          <div className="tc-players-head label"><span>At this table</span><span>{t.seats.length} players</span></div>
+          <ul>
+            {[...t.seats].sort((a, b) => a.seat - b.seat).map((s) => {
+              const pv = hand?.players.find((p) => p.seat === s.seat && p.playerId === s.userId);
+              const role = hand && hand.buttonSeat === s.seat ? 'Dealer button' : hand && !hand.ended && hand.toActSeat === s.seat ? (s.userId === me!.user.id ? 'Your turn' : 'Acting') : pv?.status === 'folded' ? 'Folded' : s.sittingOut ? 'Sitting out' : !s.connected ? 'Away' : pv ? 'In hand' : 'Waiting';
+              return (
+                <li key={s.seat}>
+                  <button className="tc-player" onClick={() => setSeatMenu(s)}>
+                    <span className={`avatar sm av-${s.seat % 6}`}>{initials(s.displayName)}</span>
+                    <span className="tc-pname"><strong>{s.userId === me!.user.id ? `You · ${s.displayName}` : s.displayName}</strong><span className={role === 'Your turn' ? 'gold' : ''}>{role}</span></span>
+                    <span className="num mono">{fmt(pv ? pv.stack : s.stack)}</span>
+                  </button>
+                </li>
+              );
+            })}
+            {t.seats.length === 0 && <li className="subtle tc-empty">Nobody is seated yet.</li>}
+          </ul>
+        </div>
       </aside>
 
       {sitSeat !== null && (
@@ -188,8 +269,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   );
 }
 
-function SeatBox({ seat, pos, sv, pv, hand, isMe, verify, portrait, canSit, onSit, onOpen, offset, actionSeconds, gift }: {
-  seat: number; pos: { x: number; y: number }; sv: SeatView | null; pv: PlayerV | null; hand: HandV | null; isMe: boolean; verify: Record<string, string>; portrait: boolean;
+function SeatBox({ seat, pos, sv, pv, hand, isMe, verify, canSit, onSit, onOpen, offset, actionSeconds, gift }: {
+  seat: number; pos: { x: number; y: number }; sv: SeatView | null; pv: PlayerV | null; hand: HandV | null; isMe: boolean; verify: Record<string, string>;
   canSit: boolean; onSit: () => void; onOpen: () => void; offset: number; actionSeconds: number; gift: { item: string; fromName: string } | undefined;
 }) {
   const style = { left: `${pos.x}%`, top: `${pos.y}%` } as React.CSSProperties;
@@ -211,12 +292,12 @@ function SeatBox({ seat, pos, sv, pv, hand, isMe, verify, portrait, canSit, onSi
       <div className={`seat ${isMe ? 'me' : ''} ${acting ? 'acting' : ''} ${folded ? 'folded' : ''} ${isWinner ? 'winner' : ''} ${!sv.connected ? 'away' : ''}`} style={style}>
         <div className="seat-cards">
           {pv && pv.holeCount > 0 && !folded && (pv.hole
-            ? pv.hole.map((c) => <PlayingCard key={c} card={c} size={isMe ? (portrait ? 'md' : 'lg') : 'sm'} verified={verify[c] as 'ok' | 'fail' | 'pending' | undefined} className="deal-in" />)
+            ? pv.hole.map((c) => <PlayingCard key={c} card={c} size={isMe ? 'lg' : 'sm'} verified={verify[c] as 'ok' | 'fail' | 'pending' | undefined} className="deal-in" />)
             : [0, 1].map((i) => <PlayingCard key={i} faceDown size="sm" />))}
         </div>
         <button className="seat-plate" onClick={onOpen} aria-label={`${sv.displayName}, stack ${sv.stack}${acting ? ', acting' : ''}`}>
           {acting && hand?.deadline && <TimerRing deadline={hand.deadline} offset={offset} total={actionSeconds * 1000} />}
-          <span className="avatar">{sv.displayName.slice(0, 1).toUpperCase()}</span>
+          <span className={`avatar av-${seat % 6}`}>{initials(sv.displayName)}</span>
           <span className="seat-info">
             <span className="seat-name">{sv.displayName}</span>
             <span className="seat-stack num">{fmt(pv ? pv.stack : sv.stack)}</span>
@@ -285,7 +366,7 @@ function ActionBar({ options, hand, me, bigBlind, pot, act }: { options: Options
     <div className="action-bar" role="group" aria-label="Your action">
       {aggressive && options.maxTo > options.minTo && (
         <div className="raise-row">
-          <div className="presets">{presets.map((p) => <button key={p.label} className="btn btn-sm" onClick={() => setAmount(p.v)}>{p.label}</button>)}<button className="btn btn-sm" onClick={() => setAmount(options.maxTo)}>All-in</button></div>
+          <div className="presets">{presets.map((p) => <button key={p.label} className="btn btn-sm" onClick={() => setAmount(p.v)}>{p.label}</button>)}<button className="btn btn-sm" onClick={() => setAmount(options.maxTo)}>Max</button></div>
           <input type="range" className="slider" min={options.minTo} max={options.maxTo} step={Math.max(1, Math.floor(bigBlind / 2))} value={amount} onChange={(e) => setAmount(clamp(Number(e.target.value)))} aria-label="Bet amount" />
           <input className="input num amount" type="number" inputMode="numeric" min={options.minTo} max={options.maxTo} value={amount} onChange={(e) => setAmount(Number(e.target.value))} onBlur={() => setAmount(clamp(amount))} aria-label="Bet amount" />
         </div>
@@ -294,7 +375,8 @@ function ActionBar({ options, hand, me, bigBlind, pot, act }: { options: Options
         <button className="btn btn-lg act-fold" disabled={busy} onClick={() => send('fold')}>Fold</button>
         {options.canCheck ? <button className="btn btn-lg act-check" disabled={busy} onClick={() => send('check')}>Check</button>
           : <button className="btn btn-lg act-call" disabled={busy} onClick={() => send('call')}>{options.callAmount >= me.stack ? 'Call all-in' : 'Call'} <span className="num">{fmt(options.callAmount)}</span></button>}
-        {aggressive && <button className="btn btn-primary btn-lg act-raise" disabled={busy} onClick={() => send(isAllIn ? 'allin' : options.canBet ? 'bet' : 'raise', isAllIn ? undefined : amount)}>{isAllIn ? 'All-in' : options.canBet ? 'Bet' : 'Raise to'} <span className="num">{fmt(isAllIn ? options.maxTo : amount)}</span></button>}
+        {aggressive && <button className="btn btn-brass btn-lg act-raise" disabled={busy} onClick={() => send(isAllIn ? 'allin' : options.canBet ? 'bet' : 'raise', isAllIn ? undefined : amount)}>{isAllIn ? 'All-in' : options.canBet ? 'Bet' : 'Raise to'} <span className="num">{fmt(isAllIn ? options.maxTo : amount)}</span></button>}
+        {aggressive && <button className="btn btn-lg act-allin" disabled={busy} onClick={() => send('allin')}>All-in <span className="num">{fmt(options.maxTo)}</span></button>}
       </div>
     </div>
   );

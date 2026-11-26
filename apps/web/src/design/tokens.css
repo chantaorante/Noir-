@@ -2,31 +2,34 @@
 :root {
   color-scheme: dark;
 
-  /* Surfaces */
-  --obsidian: #0b0b0d;
-  --charcoal: #141518;
-  --raised: #1c1e22;
-  --raised-2: #24272c;
-  --line: #2d3036;
-  --line-strong: #3d414a;
+  /* Surfaces (dark teal) */
+  --obsidian: #071010;
+  --charcoal: #0c1918;
+  --raised: #11211f;
+  --raised-2: #172a28;
+  --line: #1b2f2c;
+  --line-strong: #284441;
 
   /* Felt */
-  --felt-1: #13493a;
-  --felt-2: #0c3328;
-  --felt-3: #072019;
-  --felt-rail: #1a1410;
+  --felt-1: #1d6a4f;
+  --felt-2: #12503b;
+  --felt-3: #0a3526;
+  --felt-rail: #3a2818;
 
-  /* Accents */
-  --gold: #c9a96a;
-  --gold-strong: #e0c58f;
-  --gold-dim: #8f7647;
+  /* Accents: emerald for interface, brass for chips and raises */
+  --accent: #3ecf8e;
+  --accent-strong: #6fe3b0;
+  --accent-dim: #1f7a57;
+  --brass: #d6aa5f;
+  --brass-strong: #ecc888;
   --silver: #b8bcc6;
 
   /* Text */
-  --text: #ecebe7;
-  --text-2: #b4b3ad;
-  --text-3: #85847f;
-  --on-gold: #17130b;
+  --text: #e8efec;
+  --text-2: #a9b9b4;
+  --text-3: #76887f;
+  --on-accent: #04140d;
+  --on-brass: #1b1206;
 
   /* Status */
   --success: #5fbf8f;
@@ -37,7 +40,8 @@
   --card-black: #16171a;
 
   /* Type */
-  --font-display: 'Cormorant Garamond', 'Iowan Old Style', Georgia, serif;
+  --font-display: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
   --font-ui: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --fs-xs: 0.75rem;
   --fs-sm: 0.8125rem;
@@ -60,7 +64,7 @@
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 1px 1px rgb(0 0 0 / 0.25);
   --shadow-2: 0 8px 24px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.3);
   --shadow-3: 0 24px 64px rgb(0 0 0 / 0.55), 0 8px 20px rgb(0 0 0 / 0.35);
-  --glow-gold: 0 0 0 1px rgb(201 169 106 / 0.35), 0 0 24px rgb(201 169 106 / 0.18);
+  --glow-accent: 0 0 0 1px rgb(62 207 142 / 0.4), 0 0 24px rgb(62 207 142 / 0.2);
 
   /* Motion */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -69,7 +73,7 @@
   --t-med: 220ms;
   --t-slow: 420ms;
 
-  --focus: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--gold-strong);
+  --focus: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent-strong);
 }
 
 @media (prefers-reduced-motion: reduce) {

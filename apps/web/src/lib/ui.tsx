@@ -97,3 +97,9 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
 export function newId(): string {
   return crypto.randomUUID();
 }
+
+/** Two-letter initials for avatars: "Ann Lee" → "AL", "bob" → "BO". */
+export function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1]![0] : (parts[0]?.[1] ?? ''))).toUpperCase();
+}

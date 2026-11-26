@@ -54,17 +54,19 @@ chat sanitization (control characters, links, word filter); real-time lobby chat
 The browser verifier (`apps/web/src/lib/fairness.ts`, Web Crypto) produces identical results to the server engine for
 commitments, entropy mixing, permutation and card proofs.
 
-### Browser end-to-end (Playwright, Chromium) — 9 of 9 passing
+### Browser end-to-end (Playwright, Chromium) — 12 of 12 passing
 
-Run against a real server and database seeded by `apps/server/test/e2e-server.ts`, in three viewports:
-desktop 1440×900, tablet (iPad gen 7 profile), phone (Pixel 7 profile).
+Run against a real server and database seeded by `apps/server/test/e2e-server.ts`, in four viewports:
+desktop 1440×900, tablet (iPad gen 7 profile), phone upright (Pixel 7) and phone sideways (Pixel 7 landscape).
+The table is always laid out horizontally; on an upright phone the test checks that the table is rotated so its
+long side runs down the screen, and still plays the hand through the rotated buttons.
 
 1. Login rejects a wrong password, accepts the right one, lobby lists the table.
 2. Two separate browser sessions sit at a table, a hand is dealt, each sees only their own cards face up, actions are
    taken through the UI until the flop, and the fairness panel reports every revealed card as verified on the device (no failures).
 3. Owner signs in with TOTP and opens the admin dashboard.
 
-These tests found and fixed one real bug: the fairness panel showed no commitment for the current hand on some timings.
+These tests found and fixed real bugs: the fairness panel showed no commitment for the current hand on some timings, and a grid-row mix-up that collapsed the table area once the layout was made horizontal.
 
 ### Load — simulated players over real HTTP + Socket.IO
 

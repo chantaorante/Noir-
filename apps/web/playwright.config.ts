@@ -21,5 +21,6 @@ export default defineConfig({
     { name: 'desktop', use: { viewport: { width: 1440, height: 900 } } },
     { name: 'tablet', use: { ...devices['iPad (gen 7)'], browserName: 'chromium' } },
     { name: 'phone', use: { ...devices['Pixel 7'] } },
+    { name: 'phone-landscape', use: { ...devices['Pixel 7 landscape'] } },
   ],
 });

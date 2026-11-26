@@ -19,7 +19,7 @@ export function LobbyPage() {
   const [tables, setTables] = useState<TableSummary[] | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<Sort>('blinds');
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(() => new URLSearchParams(location.search).get('create') === '1');
   const ann = useLoad(() => api.get<{ announcements: { id: string; title: string; body: string }[] }>('/announcements'));
   const lb = useLoad(() => api.get<{ entries: { rank: number; userId: string; displayName: string; value: number }[] }>('/leaderboards/level'));
   const friends = useLoad(() => api.get<{ friends: { id: string; display_name: string; online: boolean; level: number }[] }>('/friends'));

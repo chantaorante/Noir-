@@ -4,11 +4,11 @@ import { z } from 'zod';
 import { parse, requireAuth, type AppDeps } from '../../http/context.js';
 import { forbidden, notFound } from '../../http/errors.js';
 
-export function lobbyRoutes({ db, tables }: AppDeps) {
+export function lobbyRoutes({ db, tables, live }: AppDeps) {
   return async (app: FastifyInstance) => {
     app.get('/tables', async (req) => {
       const a = requireAuth(req);
-      return { tables: tables.list().filter((t) => !t.row.is_private || t.canView(a.user.id)).map((t) => t.summary()) };
+      return { tables: tables.list().filter((t) => !t.row.is_private || t.canView(a.user.id)).map((t) => t.summary()), online: live.online() };
     });
 
     // Players may create private tables (they become host); public tables need tables.manage.

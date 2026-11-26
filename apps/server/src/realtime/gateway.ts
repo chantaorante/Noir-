@@ -203,5 +203,5 @@ export async function createRealtime(server: HttpServer, deps: { config: Config;
     });
   });
 
-  return { io, tables, emitter, online: () => io.engine.clientsCount };
+  return { io, tables, emitter, online: () => { let n = 0; for (const k of io.sockets.adapter.rooms.keys()) if (k.startsWith('user:')) n++; return n; } }; // unique signed-in users
 }

@@ -34,8 +34,14 @@ async function seatedPlayer(browser: Browser, username: string, tableId: string,
   await login(page, username, password);
   await expect(page.getByRole('heading', { name: /Tables/ })).toBeVisible();
   await page.goto(`/table/${tableId}`);
-  await page.getByRole('button', { name: /^Sit at seat/ }).first().click();
-  await page.getByRole('button', { name: /^Buy in for/ }).click();
+  // A previous project's players leave only once their running hand finishes, so they may still be seated.
+  const sit = page.getByRole('button', { name: /^Sit at seat/ }).first();
+  const seated = page.getByRole('button', { name: /Sit out|Sit in/ });
+  await expect(sit.or(seated).first()).toBeVisible({ timeout: 15_000 });
+  if (!(await seated.isVisible())) {
+    await sit.click();
+    await page.getByRole('button', { name: /^Buy in for/ }).click();
+  }
   await expect(page.getByRole('button', { name: /Sit out|Sit in/ })).toBeVisible();
   return { ctx, page };
 }
@@ -59,16 +65,23 @@ test('two players sit, a hand is dealt, actions work and cards verify on the dev
   const a = await seatedPlayer(browser, 'alice', s.tableId, s.password, vp);
   const b = await seatedPlayer(browser, 'bob', s.tableId, s.password, vp);
   try {
+    // The table is always horizontal: on an upright phone the whole table is rotated 90°.
+    const box = await a.page.locator('.felt').boundingBox();
+    const vpw = a.page.viewportSize()!;
+    if (vpw.height > vpw.width && vpw.width <= 600) expect(box!.height).toBeGreaterThan(box!.width); // rotated: long side runs down the screen
+    else expect(box!.width).toBeGreaterThan(box!.height);
     // Both clients see hole cards (own face up) once the hand starts.
     for (const p of [a.page, b.page]) await expect(p.locator('.seat.me .pcard.face')).toHaveCount(2, { timeout: 20_000 });
     // Opponent cards are face down for each viewer.
     await expect(a.page.locator('.seat:not(.me) .pcard.back')).toHaveCount(2);
     // Whoever is to act calls/checks; play continues to the flop.
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 30; i++) {
       const actor = (await a.page.getByRole('group', { name: 'Your action' }).isVisible()) ? a.page : (await b.page.getByRole('group', { name: 'Your action' }).isVisible()) ? b.page : null;
       if (!actor) { await a.page.waitForTimeout(400); continue; }
+      // The bar re-renders as the hand moves on, so never wait long for a button that may have gone.
       const check = actor.getByRole('button', { name: /^Check$/ });
-      if (await check.isVisible()) await check.click(); else await actor.getByRole('button', { name: /^Call/ }).click();
+      if (await check.isVisible()) await check.click({ timeout: 2000 }).catch(() => undefined);
+      else await actor.getByRole('button', { name: /^Call/ }).click({ timeout: 2000 }).catch(() => undefined);
       if ((await a.page.locator('.board .pcard.face').count()) >= 3) break;
       await actor.waitForTimeout(300);
     }
@@ -77,7 +90,7 @@ test('two players sit, a hand is dealt, actions work and cards verify on the dev
       await a.page.waitForTimeout(700);
       await a.page.screenshot({ path: `${shots}/table-${info.project.name}.png` });
     }
-    await a.page.getByRole('button', { name: 'Fairness details' }).click();
+    await a.page.getByRole('button', { name: 'Fairness details' }).click({ timeout: 8000 });
     await expect(a.page.getByText(/\d+ verified/)).toBeVisible();
     await expect(a.page.getByText(/FAILED/)).toHaveCount(0);
     const txt = await a.page.locator('.modal').innerText();
@@ -86,6 +99,9 @@ test('two players sit, a hand is dealt, actions work and cards verify on the dev
     if (shots) await a.page.screenshot({ path: `${shots}/fairness-${info.project.name}.png` });
     await a.page.keyboard.press('Escape');
     await expect(a.page.locator('.modal')).toHaveCount(0);
+  } catch (err) {
+    if (shots) for (const [n, p] of [['a', a], ['b', b]] as const) await p.page.screenshot({ path: `${shots}/fail-${info.project.name}-${n}.png` }).catch(() => undefined);
+    throw err;
   } finally {
     for (const p of [a, b]) {
       await p.page.getByRole('button', { name: /Leave/ }).click({ timeout: 3000 }).catch(() => undefined);
