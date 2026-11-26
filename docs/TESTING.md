@@ -22,7 +22,7 @@ The e2e, load and server suites each refuse to run against a database whose name
 
 ## Results
 
-### Engine (`packages/engine`) — ENGINE_COUNT tests, all passing
+### Engine (`packages/engine`) — 61 tests, all passing
 
 - Hand evaluator checked against **all 2,598,960 five-card hands** (category counts match the known totals), and 7-card evaluation against brute force over 20,000 random hands.
 - Shuffle: chi-square uniformity of card positions over 104,000 shuffles; a test asserts production code never references `Math.random`.
@@ -76,7 +76,14 @@ and every ledger chain verifies.
 **Important caveat:** the server and all simulated clients ran in the same Node process on the same VM, so CPU, memory
 and event-loop figures include the clients' own work. They are an upper bound on server cost, not a measurement of it.
 
-LOAD_RESULTS_TABLE
+| Players | Tables | Duration | Hands completed | Actions | Rejected during play | Ack latency p50 / p95 / p99 / max (ms) | Login p95 (ms) | Peak RSS | Event-loop delay p99 / max (ms) | Credits conserved | Broken ledgers |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 10 | 2 | 123 s | 20 (voided 0) | 447 | 0 (wind-down 10) | 5 / 10.7 / 48.1 / 72.9 | 299.3 | 124.8 MB | 10.8 / 19.6 | yes (50,000 of 50,000) | 0 |
+| 25 | 5 | 122.5 s | 30 (voided 0) | 934 | 0 (wind-down 25) | 4.7 / 9.2 / 37.6 / 81.5 | 751.5 | 384 MB | 11.1 / 24.8 | yes (125,000 of 125,000) | 0 |
+| 50 | 9 | 122.6 s | 86 (voided 0) | 2032 | 0 (wind-down 33) | 4.2 / 10.8 / 33.8 / 74.6 | 1328.2 | 389.5 MB | 11.3 / 27.5 | yes (250,000 of 250,000) | 0 |
+| 100 | 17 | 124.1 s | 143 (voided 0) | 4009 | 0 (wind-down 108) | 3.9 / 10.5 / 37.1 / 302.7 | 2412.1 | 357.8 MB | 12 / 262.4 | yes (500,000 of 500,000) | 0 |
+
+Run date 2026-11-26, 120 seconds of play per run, each run against a freshly reset database. Login p95 grows with player count because all players sign in within the same second and Argon2id hashing is deliberately limited to 4 at a time; the 2.4 s at 100 players is that queue, not gameplay. The 302 ms maximum ack and 262 ms event-loop maximum at 100 players were single spikes (p99 stayed at 37 ms and 12 ms).
 
 "Rejected during wind-down" are actions that arrived after the player had already left (leaving folds a player who is
 to act), which is expected. "Ack latency" is the time from sending an action to receiving the server's acknowledgement,
