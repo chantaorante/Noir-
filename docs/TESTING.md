@@ -51,7 +51,7 @@ chat sanitization (control characters, links, word filter); real-time lobby chat
 
 ### Web unit — 1 test, passing
 
-The browser verifier (`apps/web/src/lib/fairness.ts`, Web Crypto) produces identical results to the server engine for
+The browser verifier (`apps/web/static/js/fairness.js`, Web Crypto) produces identical results to the server engine for
 commitments, entropy mixing, permutation and card proofs.
 
 ### Browser end-to-end (Playwright, Chromium) — 12 of 12 passing

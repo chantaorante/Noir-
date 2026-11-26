@@ -88,7 +88,7 @@ export async function buildApp(deps: AppDeps, extra?: (app: FastifyInstance) => 
   await app.register(adminRoutes(deps), { prefix: '/api/admin' });
   if (extra) await extra(app);
 
-  // Optional: serve the built SPA (normally Caddy serves static files).
+  // Serve the web client (plain HTML/CSS/JS in apps/web/static); unknown paths get index.html.
   if (config.staticDir && existsSync(config.staticDir)) {
     const root = path.resolve(config.staticDir);
     app.get('/*', async (req, reply) => {
@@ -96,9 +96,10 @@ export async function buildApp(deps: AppDeps, extra?: (app: FastifyInstance) => 
       let file = path.resolve(root, rel);
       if (!file.startsWith(root + path.sep) || !existsSync(file) || statSync(file).isDirectory()) file = path.join(root, 'index.html');
       const ext = path.extname(file);
-      const types: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.json': 'application/json', '.ico': 'image/x-icon' };
+      const types: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.json': 'application/json', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8' };
       reply.type(types[ext] ?? 'application/octet-stream');
-      if (ext !== '.html' && rel.startsWith('assets/')) reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+      // Plain files without content hashes: fonts and vendored libraries rarely change, everything else is revalidated.
+      reply.header('Cache-Control', rel.startsWith('fonts/') || rel.startsWith('vendor/') ? 'public, max-age=604800' : 'no-cache');
       return reply.send(createReadStream(file));
     });
   }

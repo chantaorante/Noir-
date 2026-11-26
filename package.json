@@ -9,11 +9,11 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm -r typecheck && pnpm --filter @noir/web check",
     "test": "pnpm -r test",
     "dev:server": "pnpm --filter @noir/server dev",
-    "dev:web": "pnpm --filter @noir/web dev",
-    "e2e": "pnpm --filter @noir/web build && pnpm --filter @noir/web exec playwright test",
+    "dev:web": "echo 'The web client has no build step: start the server with STATIC_DIR=apps/web/static and open http://localhost:3000'",
+    "e2e": "pnpm --filter @noir/web exec playwright test",
     "load": "pnpm --filter @noir/server exec tsx test/load.ts"
   }
 }

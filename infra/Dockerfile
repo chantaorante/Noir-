@@ -12,7 +12,7 @@ RUN pnpm install --frozen-lockfile
 COPY packages packages
 COPY apps apps
 RUN pnpm --filter @noir/engine build && pnpm --filter @noir/shared build \
- && pnpm --filter @noir/server build && pnpm --filter @noir/web build \
+ && pnpm --filter @noir/server build \
  && pnpm --filter @noir/server deploy --prod --legacy /out/server
 
 # ---------- runtime stage (no build tools, non-root)
@@ -21,7 +21,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 RUN groupadd --system --gid 10001 noir && useradd --system --uid 10001 --gid noir --no-create-home noir
 COPY --from=build --chown=root:root /out/server /app/apps/server
-COPY --from=build --chown=root:root /src/apps/web/dist /app/web
+COPY --chown=root:root apps/web/static /app/web
 COPY --chown=root:root db/migrations /app/db/migrations
 ENV MIGRATIONS_DIR=/app/db/migrations STATIC_DIR=/app/web
 USER noir

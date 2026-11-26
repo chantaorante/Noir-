@@ -92,11 +92,10 @@ Browser ──emit("table:action",{tableId,handId,seq,actionId,type,amount})─�
 | @node-rs/argon2 | 2.x | Password hashing | Argon2id with prebuilt binaries (no native toolchain needed in the container). |
 | otplib | 13.x | TOTP MFA | RFC 6238; works with any authenticator app; no paid SMS. |
 | pino | (Fastify built-in) | Logging | Structured JSON, low overhead, rotated by Docker's local log driver. |
-| React | 19.x | UI | Requested; mature ecosystem. |
-| Vite | 8.x | Build | Fast builds, output is static files served by Caddy. |
-| Framer Motion | current | UI motion | Layout/route transitions, toasts, modals. |
+| Plain HTML / CSS / JavaScript modules | browser-native | UI | No framework and no build step: `apps/web/static` is served exactly as written. Easy to read and change. |
 | SVG + Web Animations API | browser-native | Dealer & card animation | See §10: vector dealer with articulated hands; zero runtime licence cost; GPU-composited transforms. |
-| lucide-react | current | Icons | Single consistent icon set (rule: no mixing). |
+| Lucide icons | inlined in `static/js/icons.js` | Icons | Single consistent icon set (rule: no mixing). |
+| socket.io-client | 4.8 | Realtime | Vendored as `static/vendor/socket.io.min.js`. |
 | Caddy | 2.x | Reverse proxy | Automatic HTTPS (local CA on LAN, real certs on a domain), HTTP/2/3, security headers, static SPA serving. |
 | cloudflared | current | Remote access (optional) | Outbound-only tunnel; no router port forwarding; hides home IP. Requires a domain on Cloudflare (see §14). |
 | age | 1.x | Backup encryption | Simple, modern, public-key encryption: the server only needs the public key to encrypt backups. |
@@ -137,11 +136,14 @@ noir/
 │   │   │   └── main.ts
 │   │   └── test/              # integration + security tests (real Postgres)
 │   └── web/
-│       ├── src/
-│       │   ├── design/        # tokens.css, primitives (Button, Input, Modal, Toast…)
-│       │   ├── features/      # auth, lobby, table, dealer, chat, profile, admin…
-│       │   └── net/           # API + socket clients
-│       └── test/              # Playwright UI tests
+│       ├── static/            # the whole web client, served as-is (no build step)
+│       │   ├── index.html
+│       │   ├── css/           # tokens, base, app layout, fonts
+│       │   ├── js/core.js     # DOM helper, API + socket clients, router, session, toasts, modals
+│       │   ├── js/pages/      # auth, lobby, table, dealer, chat, profile, settings, admin…
+│       │   └── vendor/, fonts/
+│       ├── test/              # browser verifier unit test
+│       └── e2e/               # Playwright UI tests
 ├── db/migrations/             # 0001_init.sql … forward-only, checksummed
 ├── infra/
 │   ├── docker-compose.yml, Dockerfile, Caddyfile

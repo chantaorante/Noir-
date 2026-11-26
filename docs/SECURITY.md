@@ -18,7 +18,7 @@ No system is unhackable. NOIR uses defence in depth against a documented threat 
 | Curious or cheating player | Modifies the client, replays or forges WS messages, scripts actions | Server-authoritative engine, zod validation, per-viewer projection, idempotency + seq, rate limits, bot heuristics |
 | Colluding players | Share cards out of band, chip-dump | Cannot be fully prevented. Integrity alerts (same-IP seating, soft-play and chip-dump patterns) go to human review. |
 | Credential attacker | Stuffing, brute force | Argon2id, lockout with backoff, per-IP and per-account limits, MFA mandatory for staff |
-| Web attacker | XSS, CSRF, clickjacking, injection | React escaping + no `dangerouslySetInnerHTML`, strict CSP, SameSite cookies + CSRF token + Origin check, `frame-ancestors 'none'`, parameterized SQL |
+| Web attacker | XSS, CSRF, clickjacking, injection | all user text inserted as DOM text nodes (`innerHTML` is used only for bundled icon and dealer SVG markup), strict CSP, SameSite cookies + CSRF token + Origin check, `frame-ancestors 'none'`, parameterized SQL |
 | Malicious or compromised moderator | Abuses moderation tools | Least privilege: no credit, security or fairness permissions. All actions are audit-logged and hash-chained. |
 | Network attacker | Sniffing, MITM | TLS everywhere (Caddy / Cloudflare), HSTS, `Secure` cookies |
 | Host-level attacker | Exploits exposed services | Only 443 exposed (or none, with the tunnel). DB not published. SSH keys only, LAN-only. Non-root containers. Updates. |
@@ -49,7 +49,7 @@ No system is unhackable. NOIR uses defence in depth against a documented threat 
 * Every HTTP body, query and WS payload is parsed by a zod schema (strict objects, length and range limits). Unknown fields are rejected.
 * Bodies are limited to 64 KB and WS messages to 4 KB (`maxHttpBufferSize`).
 * SQL uses only `$1` placeholders. No string concatenation of user input.
-* Chat is stored raw and rendered as text by React, which escapes it. Control characters are stripped, links blocked by default (configurable), and a word filter applied.
+* Chat is stored raw and inserted into the page as text nodes, so it is never parsed as HTML. Control characters are stripped, links blocked by default (configurable), and a word filter applied.
 
 **CSRF.** Cookie auth plus `SameSite=Lax`, plus a per-session CSRF token required in the `X-CSRF-Token` header on every
 state-changing request, plus a strict `Origin` check. The Socket.IO handshake also checks `Origin`.
@@ -66,8 +66,8 @@ original result without re-applying. A stale `expectedSeq` is rejected. Timestam
 
 **Errors.** Clients get generic messages with a correlation ID. Stack traces are logged server-side only.
 
-**Secrets.** Secrets live in `.env` on the server (mode 600, not in git) and are injected as container env. Nothing secret enters the Vite bundle,
-because only `VITE_`-prefixed variables are exposed and none are secret. The app refuses to start with missing or default secrets.
+**Secrets.** Secrets live in `.env` on the server (mode 600, not in git) and are injected as container env. The web client is static files with no
+configuration baked in, so no secret can reach the browser. The app refuses to start with missing or default secrets.
 
 ## Game-integrity and anti-cheat
 
