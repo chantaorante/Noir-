@@ -1,0 +1,32 @@
+{
+	admin off
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+# LAN: https://noir.lan with Caddy's internal CA (install the root cert on devices once).
+# With a real domain, set NOIR_HOSTNAME=poker.example.com and NOIR_TLS to your email for ACME.
+{$NOIR_HOSTNAME} {
+	tls {$NOIR_TLS}
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# Block internal-only endpoints from the outside.
+	@internal path /readyz /healthz
+	respond @internal 404
+
+	reverse_proxy app:3000 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+# Plain HTTP on the internal edge network for cloudflared (TLS terminates at Cloudflare).
+:8080 {
+	encode zstd gzip
+	reverse_proxy app:3000
+}

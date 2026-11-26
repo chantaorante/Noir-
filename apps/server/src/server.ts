@@ -35,11 +35,22 @@ export async function createNoir(config: Config, opts: { listen?: boolean; db?: 
   rt = await createRealtime(app.server, { config, db, tables, proxy, log });
   const boot = await tables.start();
   if (boot.voided) log(`voided ${boot.voided} hand(s) interrupted by restart; players keep their pre-hand stacks`);
+  // Daily retention: purge secret deck material and old login/security telemetry.
+  const retention = async () => {
+    await db.query(`DELETE FROM hand_secrets WHERE created_at < now() - make_interval(days => $1)`, [config.handSecretRetentionDays]);
+    await db.query(`DELETE FROM login_events WHERE created_at < now() - interval '180 days'`);
+    await db.query(`DELETE FROM security_events WHERE created_at < now() - interval '180 days'`);
+    await db.query(`DELETE FROM sessions WHERE expires_at < now() - interval '30 days'`);
+  };
+  const retentionTimer = setInterval(() => void retention().catch((e) => log('retention failed', e)), 24 * 3600_000);
+  retentionTimer.unref();
+  void retention().catch((e) => log('retention failed', e));
   if (opts.listen !== false) await app.listen({ host: config.host, port: config.port });
   else await app.ready();
   return {
     app, db, rt, tables,
     async close() {
+      clearInterval(retentionTimer);
       await tables.shutdown();
       await new Promise<void>((r) => rt!.io.close(() => r()));
       await app.close().catch(() => undefined);
