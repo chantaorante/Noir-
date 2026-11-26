@@ -16,7 +16,7 @@ There is no payment, deposit, or withdrawal code anywhere in this repository.
 | Server | Fastify + Socket.IO (`apps/server`). One serialized actor per table, events persisted before broadcast, hole cards sent only to their owner. |
 | Database | PostgreSQL 16, 52 tables, append-only credit and XP ledgers and hand events enforced by triggers, hash-chained admin audit log. |
 | Security | Argon2id, TOTP two-factor (required for staff), step-up re-authentication for sensitive admin actions, CSRF and Origin checks, rate limits, lockout, strict CSP. See `docs/SECURITY.md`. |
-| Web client | React 19 + Vite (`apps/web`): lobby, tables with an animated dealer, chat, profiles, leaderboards, missions, achievements, cosmetic gifts, settings, admin panel. Works on phone, tablet and desktop. |
+| Web client | Plain HTML, CSS and JavaScript modules in `apps/web/static`, no framework and no build step: lobby, tables with an animated dealer, chat, profiles, leaderboards, missions, achievements, cosmetic gifts, settings, admin panel. Works on phone, tablet and desktop. |
 | Operations | Docker Compose + Caddy (automatic HTTPS), optional Cloudflare Tunnel, encrypted `age` backups with an automated restore test, host hardening script. |
 
 ## Quick start (development)
@@ -26,10 +26,10 @@ Requirements: Node 22, pnpm 10, PostgreSQL 16.
 ```bash
 pnpm install
 createdb noir            # or use docker compose's postgres
-cp .env.example apps/server/.env   # fill in DATABASE_URL, NOIR_DATA_KEY (openssl rand -hex 32), PUBLIC_ORIGINS=http://localhost:5173
+cp .env.example apps/server/.env   # fill in DATABASE_URL, NOIR_DATA_KEY (openssl rand -hex 32), PUBLIC_ORIGINS=http://localhost:3000, STATIC_DIR=../web/static
 pnpm build
 pnpm dev:server          # migrations run automatically on start
-pnpm dev:web             # http://localhost:5173
+# open http://localhost:3000 (the server also serves the web client)
 node apps/server/dist/cli/create-owner.js owner "Your Name"   # prints a one-time setup link
 ```
 

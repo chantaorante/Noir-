@@ -30,7 +30,7 @@ await reset.end();
 const config = loadConfig({
   NODE_ENV: 'test', DATABASE_URL: DB, PUBLIC_ORIGINS: `${ORIGIN},http://localhost:${PORT}`, NOIR_DATA_KEY: randomBytes(32).toString('hex'),
   COOKIE_SECURE: 'false', TRUST_PROXY: 'false', HOST: '127.0.0.1', PORT: String(PORT), HAND_PAUSE_MS: '1500',
-  LOG_LEVEL: 'warn', LOGIN_RATE_LIMIT: '1000', STATIC_DIR: path.resolve(here, '../../web/dist'),
+  LOG_LEVEL: 'warn', LOGIN_RATE_LIMIT: '1000', STATIC_DIR: path.resolve(here, '../../web/static'),
 });
 const noir = await createNoir(config, { listen: true });
 
