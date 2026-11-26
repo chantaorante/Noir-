@@ -1,3 +1,4 @@
+import { refreshMaintenance } from './modules/system/maintenance.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { FastifyInstance } from 'fastify';
@@ -22,6 +23,7 @@ export interface Noir {
 export async function createNoir(config: Config, opts: { listen?: boolean; db?: Db } = {}): Promise<Noir> {
   const db = opts.db ?? createPool(config.databaseUrl);
   await migrate(db, MIGRATIONS_DIR, (m) => process.stdout.write(`[migrate] ${m}\n`));
+  await refreshMaintenance(db);
   const proxy = new EmitterProxy();
   const log = (m: string, e?: unknown) => process.stderr.write(`[noir] ${m} ${e instanceof Error ? e.stack : e ? JSON.stringify(e) : ''}\n`);
   const tables = new TableManager(db, proxy, { handPauseMs: config.handPauseMs, log });

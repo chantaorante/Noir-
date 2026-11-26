@@ -94,6 +94,17 @@ describe('authentication', () => {
     old.cookie = before;
     expect((await old.get('/api/auth/me')).status).toBe(401);
     expect((await c.get('/api/auth/me')).body.user.mfaEnabled).toBe(true);
+
+    // Recovery codes: each logs in exactly once; wrong codes are rejected.
+    const rc = en.body.recoveryCodes[0];
+    const r1 = new Client(url);
+    expect((await r1.post('/api/auth/login', { username: 'dave', password: PASSWORD, recoveryCode: rc })).status).toBe(200);
+    expect((await r1.get('/api/auth/me')).body.user.username).toBe('dave');
+    const r2 = new Client(url);
+    expect((await r2.post('/api/auth/login', { username: 'dave', password: PASSWORD, recoveryCode: rc })).status).toBe(401);
+    expect((await r2.post('/api/auth/login', { username: 'dave', password: PASSWORD, recoveryCode: 'AAAAAAAAAA' })).status).toBe(401);
+    const left = await noir.db.query("SELECT cardinality(recovery_codes) AS n FROM user_credentials c JOIN users u ON u.id = c.user_id WHERE u.username = 'dave'");
+    expect(left.rows[0].n).toBe(9);
   });
 
   it('registration requires a valid invitation code', async () => {

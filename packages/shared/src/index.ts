@@ -13,7 +13,7 @@ export const ENTROPY = z.string().regex(/^[0-9a-f]{64}$/);
 export const AMOUNT = z.number().int().positive().max(1_000_000_000_000);
 
 // ------------------------------------------------------------------ HTTP bodies
-export const LoginBody = z.strictObject({ username: z.string().min(1).max(64), password: z.string().min(1).max(128), totp: TOTP_CODE.optional() });
+export const LoginBody = z.strictObject({ username: z.string().min(1).max(64), password: z.string().min(1).max(128), totp: TOTP_CODE.optional(), recoveryCode: z.string().regex(/^[A-Za-z0-9]{10}$/, 'Recovery codes are 10 letters or digits.').optional() });
 export const RegisterBody = z.strictObject({ inviteCode: z.string().min(8).max(64), username: USERNAME, displayName: DISPLAY_NAME, password: PASSWORD });
 export const ChangePasswordBody = z.strictObject({ currentPassword: z.string().min(1).max(128), newPassword: PASSWORD });
 export const ResetPasswordBody = z.strictObject({ token: z.string().min(20).max(128), newPassword: PASSWORD });

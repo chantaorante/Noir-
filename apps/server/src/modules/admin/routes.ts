@@ -1,3 +1,4 @@
+import { refreshMaintenance } from '../system/maintenance.js';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import os from 'node:os';
 import { statfs } from 'node:fs/promises';
@@ -327,6 +328,10 @@ export function adminRoutes({ db, tables, live }: AppDeps) {
         await tx.query('INSERT INTO app_config (key, value, updated_by) VALUES ($1,$2,$3) ON CONFLICT (key) DO UPDATE SET value = $2, updated_by = $3, updated_at = now()', [key, value, a.user.id]);
         await audit(tx, { actorId: a.user.id, action: 'config.update', targetType: 'config', targetId: key, details: { from: prev, to: value }, ip: clientIp(req) });
       });
+      if (key === 'maintenance') {
+        const m = await refreshMaintenance(db);
+        if (m.changed && !m.state.enabled) for (const t of tables.list()) t.kick();
+      }
       return { ok: true };
     });
 

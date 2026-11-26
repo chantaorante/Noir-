@@ -1,0 +1,77 @@
+/* NOIR design tokens. Dark-first; every text/background pair meets WCAG AA. */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --obsidian: #0b0b0d;
+  --charcoal: #141518;
+  --raised: #1c1e22;
+  --raised-2: #24272c;
+  --line: #2d3036;
+  --line-strong: #3d414a;
+
+  /* Felt */
+  --felt-1: #13493a;
+  --felt-2: #0c3328;
+  --felt-3: #072019;
+  --felt-rail: #1a1410;
+
+  /* Accents */
+  --gold: #c9a96a;
+  --gold-strong: #e0c58f;
+  --gold-dim: #8f7647;
+  --silver: #b8bcc6;
+
+  /* Text */
+  --text: #ecebe7;
+  --text-2: #b4b3ad;
+  --text-3: #85847f;
+  --on-gold: #17130b;
+
+  /* Status */
+  --success: #5fbf8f;
+  --danger: #e26d5f;
+  --warning: #e3b35c;
+  --info: #7aa7e0;
+  --card-red: #c4372c;
+  --card-black: #16171a;
+
+  /* Type */
+  --font-display: 'Cormorant Garamond', 'Iowan Old Style', Georgia, serif;
+  --font-ui: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-md: 0.9375rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 2.25rem;
+  --fs-3xl: 3rem;
+
+  /* Space (4px scale) */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px; --s12: 48px;
+
+  /* Radius */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 1px 1px rgb(0 0 0 / 0.25);
+  --shadow-2: 0 8px 24px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.3);
+  --shadow-3: 0 24px 64px rgb(0 0 0 / 0.55), 0 8px 20px rgb(0 0 0 / 0.35);
+  --glow-gold: 0 0 0 1px rgb(201 169 106 / 0.35), 0 0 24px rgb(201 169 106 / 0.18);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-fast: 120ms;
+  --t-med: 220ms;
+  --t-slow: 420ms;
+
+  --focus: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--gold-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-fast: 0ms; --t-med: 0ms; --t-slow: 0ms; }
+}

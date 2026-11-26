@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Noir } from '../src/server.js';
 import { verifyUserLedger } from '../src/modules/ledger/ledger.js';
-import { Client, loginStaff, makeUser, startNoir } from './harness.js';
+import { Client, connectSocket, emitAck, loginStaff, makeUser, startNoir } from './harness.js';
 
 let noir: Noir;
 let url: string;
@@ -164,5 +164,39 @@ describe('admin user management', () => {
     expect(s.status).toBe(200);
     expect((await n.get('/api/auth/me')).status).toBe(401);
     expect((await n.login('newbie', 'Brand-New-Pass-42')).status).toBe(403);
+  });
+});
+
+describe('maintenance mode', () => {
+  it('blocks player sign-in and seating but not staff; turning it off restores both', async () => {
+    const oc = new Client(url);
+    await loginStaff(noir, oc, owner);
+    const table = await oc.post('/api/tables', { name: 'Maint Table', maxSeats: 6, smallBlind: 5, bigBlind: 10, minBuyIn: 200, maxBuyIn: 2000, actionSeconds: 15 });
+    expect(table.status).toBe(200);
+    await grant(oc, player.id, 1000);
+    const pc = new Client(url);
+    expect((await pc.login('player1')).status).toBe(200);
+    const sock = await connectSocket(url, pc.cookie);
+    try {
+      const on = await oc.req('PUT', '/api/admin/config/maintenance', { enabled: true, message: 'Upgrading the server' });
+      expect(on.status).toBe(200);
+      const status = await oc.get('/api/status');
+      expect(status.body.maintenance.enabled).toBe(true);
+      const blocked = await new Client(url).login('player1');
+      expect(blocked.status).toBe(503);
+      expect(blocked.body.code).toBe('MAINTENANCE');
+      const staff = new Client(url);
+      await loginStaff(noir, staff, admin); // throws unless 200
+      const sit = await emitAck(sock, 'table:sit', { tableId: table.body.table.id, seat: 0, buyIn: 500 });
+      expect(sit.ok).toBe(false);
+      expect(sit.code).toBe('MAINTENANCE');
+      const audit = await noir.db.query(`SELECT 1 FROM admin_audit_log WHERE action = 'config.update' AND target_id = 'maintenance'`);
+      expect(audit.rowCount).toBeGreaterThan(0);
+    } finally {
+      const off = await oc.req('PUT', '/api/admin/config/maintenance', { enabled: false, message: '' });
+      expect(off.status).toBe(200);
+      sock.disconnect();
+    }
+    expect((await new Client(url).login('player1')).status).toBe(200);
   });
 });

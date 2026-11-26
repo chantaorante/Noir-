@@ -1,3 +1,4 @@
+import { getMaintenance } from '../modules/system/maintenance.js';
 import type { Server as HttpServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import { WsAction, WsChatSend, WsEntropy, WsLeave, WsRebuy, WsSit, WsSitOut, WsWatchTable, type Ack } from '@noir/shared';
@@ -153,6 +154,7 @@ export async function createRealtime(server: HttpServer, deps: { config: Config;
     });
 
     on('table:sit', WsSit, async ({ tableId, seat, buyIn, accessCode }) => {
+      if (getMaintenance().enabled) throw new HttpError(503, 'MAINTENANCE', getMaintenance().message || 'NOIR is in maintenance. Tables reopen shortly.');
       const t = tables.get(tableId);
       await tables.unlock(t, userId, accessCode);
       await t.sit(userId, seat, buyIn);

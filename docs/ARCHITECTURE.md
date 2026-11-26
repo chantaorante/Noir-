@@ -40,7 +40,7 @@ companion documents referenced in each section.
  │  │ compression│   │                      ▼              │                │   │
  │  └────────────┘   │  ┌────────── Domain modules ───────▼─────────────┐  │   │
  │                   │  │ auth · users · ledger · tables · lobby · chat │  │   │
- │                   │  │ progression · gifts · tournaments · admin     │  │   │
+ │                   │  │ progression · gifts · admin · system          │  │   │
  │                   │  │ moderation · notifications · audit · health   │  │   │
  │                   │  └───────────────┬───────────────────────────────┘  │   │
  │                   │                  │                                  │   │
@@ -132,7 +132,8 @@ noir/
 │   │   │   ├── http/          # Fastify app, security plugins, error handler
 │   │   │   ├── realtime/      # Socket.IO gateway, socket auth, rate limits
 │   │   │   ├── modules/       # auth, users, ledger, tables, lobby, chat, progression,
-│   │   │   │                  # gifts, tournaments, admin, moderation, notifications, audit
+│   │   │   │                  # gifts, admin, moderation, notifications, audit, system (maintenance)
+│   │   │   │                  # (tournament tables exist in the schema; the feature is not built yet)
 │   │   │   └── main.ts
 │   │   └── test/              # integration + security tests (real Postgres)
 │   └── web/

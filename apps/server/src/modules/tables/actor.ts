@@ -5,6 +5,7 @@ import {
 } from '@noir/engine';
 import type { CardRevealDto, FairnessInfo, SeatView } from '@noir/shared';
 import { withTx, type Db, type Tx } from '../../db/pool.js';
+import { getMaintenance } from '../system/maintenance.js';
 import { HttpError } from '../../http/errors.js';
 import { postEntry } from '../ledger/ledger.js';
 import { onHandComplete, type ProgressNotice } from '../progression/progression.js';
@@ -344,8 +345,11 @@ export class TableActor {
     return [...this.seats.values()].filter((s) => s.stack > 0 && !s.sittingOut && !s.leaveAfterHand && (s.connected || s.disconnectedAt === null || Date.now() - s.disconnectedAt < 60_000));
   }
 
+  /** Re-check whether a hand can start (e.g. after maintenance mode ends). */
+  kick() { this.scheduleStart(); }
+
   private async startNextHand() {
-    if (this.closed || this.row.status !== 'open') return;
+    if (this.closed || this.row.status !== 'open' || getMaintenance().enabled) return;
     if (this.hand && this.hand.state.street !== 'complete') return;
     const players = this.eligibleSeats();
     if (players.length < 2 || !this.next) return;

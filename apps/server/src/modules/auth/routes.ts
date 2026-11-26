@@ -1,3 +1,4 @@
+import { getMaintenance } from '../system/maintenance.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ChangePasswordBody, LoginBody, MfaEnableBody, RegisterBody, ResetPasswordBody, StepUpBody, UUID } from '@noir/shared';
 import { withTx } from '../../db/pool.js';
@@ -25,7 +26,7 @@ export function authRoutes({ db, config }: AppDeps) {
       const ip = clientIp(req);
       const ua = req.headers['user-agent'] ?? null;
       const r = await db.query(
-        `SELECT u.id, u.username, u.status, u.suspended_until, c.password_hash, c.failed_logins, c.locked_until, c.totp_enabled, c.totp_secret_enc, c.totp_last_step, c.recovery_codes
+        `SELECT u.id, u.username, u.status, u.suspended_until, (SELECT key FROM roles WHERE id = u.role_id) AS role, c.password_hash, c.failed_logins, c.locked_until, c.totp_enabled, c.totp_secret_enc, c.totp_last_step, c.recovery_codes
            FROM users u JOIN user_credentials c ON c.user_id = u.id WHERE u.username = $1 AND u.deleted_at IS NULL`,
         [body.username],
       );
@@ -54,17 +55,31 @@ export function authRoutes({ db, config }: AppDeps) {
         await fail(`status_${row.status}`, row.id);
         throw forbidden(row.status === 'suspended' ? 'This account is suspended.' : 'This account is not active.', 'ACCOUNT_INACTIVE');
       }
+      if (getMaintenance().enabled && row.role === 'player') {
+        await fail('maintenance', row.id);
+        throw new HttpError(503, 'MAINTENANCE', getMaintenance().message || 'NOIR is in maintenance. Please try again later.');
+      }
       let mfa = false;
       if (row.totp_enabled) {
-        if (!body.totp) {
-          return reply.status(401).send({ error: 'Enter the code from your authenticator app.', code: 'MFA_REQUIRED' });
+        if (body.recoveryCode) {
+          // Single use: remove the hash atomically; a concurrent second use finds nothing to remove.
+          const used = await db.query('UPDATE user_credentials SET recovery_codes = array_remove(recovery_codes, $2) WHERE user_id = $1 AND $2 = ANY(recovery_codes) RETURNING cardinality(recovery_codes) AS left', [row.id, sha256(body.recoveryCode).toString('hex')]);
+          if (!used.rowCount) {
+            await fail('bad_recovery_code', row.id);
+            throw unauthorized('That recovery code is not valid.');
+          }
+          await securityEvent(db, 'recovery_code_used', 'warn', { remaining: used.rows[0].left }, row.id, ip);
+        } else {
+          if (!body.totp) {
+            return reply.status(401).send({ error: 'Enter the code from your authenticator app.', code: 'MFA_REQUIRED' });
+          }
+          const step = verifyTotp(decryptSecret(config.dataKey, row.totp_secret_enc), body.totp);
+          if (step === null || (row.totp_last_step !== null && step <= row.totp_last_step)) {
+            await fail('bad_totp', row.id);
+            throw unauthorized('That code is not valid.');
+          }
+          await db.query('UPDATE user_credentials SET totp_last_step = $2 WHERE user_id = $1', [row.id, step]);
         }
-        const step = verifyTotp(decryptSecret(config.dataKey, row.totp_secret_enc), body.totp);
-        if (step === null || (row.totp_last_step !== null && step <= row.totp_last_step)) {
-          await fail('bad_totp', row.id);
-          throw unauthorized('That code is not valid.');
-        }
-        await db.query('UPDATE user_credentials SET totp_last_step = $2 WHERE user_id = $1', [row.id, step]);
         mfa = true;
       }
       await db.query('UPDATE user_credentials SET failed_logins = 0, locked_until = NULL WHERE user_id = $1', [row.id]);
